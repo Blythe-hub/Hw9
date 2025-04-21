@@ -1,0 +1,11 @@
+Problem 3: True/False Evaluation
+A. True.
+ZIP codes with higher minority percentages have way more FAIR policies per 100 housing units (model A's minority coefficient is like 0.014, p < 0.001), which basically means they're definitely related in a positive way.
+B. False.
+There's no real evidence that minority percentage and housing age work together to affect FAIR policies—model B shows a pretty weak relationship that isn't significant (age → minority p ≈ 0.125), and when I ran a policies ~ minority*age model, the interaction term was basically zero.
+C. False.
+The relationship between minority percentage and policies doesn't really change based on fire risk. In model C, the minority interaction is pretty much zero (p = 0.839), so high-risk and low-risk ZIP codes have basically the same slope.
+D. False.
+When I added income to the simple policies ~ minority regression (model D2), the minority effect didn't go away—minority was still significant (p ≈ 0.002), so income by itself doesn't explain why there's an association.
+E. True.
+Even after I controlled for income, fire risk, AND housing age all at once (model E), minority percentage still had a positive, significant coefficient (about 0.008, p = 0.006).

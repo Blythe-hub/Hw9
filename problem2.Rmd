@@ -1,0 +1,179 @@
+---
+title: "Hw9 – Problem 2"
+output:
+  html_document: default
+  pdf_document:
+    latex_engine: xelatex
+    number_sections: true
+    keep_tex: true
+    toc: false
+header-includes:
+  - \usepackage{hyperref}
+  - \hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo      = TRUE,
+  warning   = FALSE,
+  message   = FALSE,
+  fig.width = 7,
+  fig.height= 5
+)
+library(tidyverse)
+library(broom)
+
+
+```
+
+##Problem 2: Grocery store prices
+
+```{r cars}
+# Read and clean
+groceries <- read.csv("groceries.csv") %>%
+  mutate(
+    Store = str_trim(Store),
+    Type  = str_trim(Type)
+  )
+
+```
+
+## Part A. Average price by store
+
+```{r pressure, echo=FALSE}
+# Compute per‑store averages
+store_avg <- groceries %>%
+  group_by(Store) %>%
+  summarize(avg_price = mean(Price, na.rm = TRUE)) %>%
+  arrange(avg_price)
+
+# Bar chart
+ggplot(store_avg,
+       aes(x = avg_price, y = reorder(Store, avg_price))) +
+  geom_col(fill = "#4682B4") +
+  labs(
+    x       = "Average price (USD)",
+    y       = "Store",
+    caption = "Figure A: Each store’s average price across all products it stocks."
+  ) +
+  theme_minimal()
+
+```
+
+Part B. Number of stores selling each product
+
+```{r}
+# Count distinct Store×Product pairs
+prod_counts <- groceries %>%
+  distinct(Store, Product) %>%
+  count(Product, name = "n_stores") %>%
+  arrange(n_stores)
+
+# Bar chart
+ggplot(prod_counts, aes(x = n_stores, y = reorder(Product, n_stores))) +
+  geom_col(fill = "#FF8C00") +
+  labs(
+    x       = "Number of stores carrying product",
+    y       = "Product",
+    caption = "Figure B: Counts top out at 16 (e.g. eggs, milk are in every store)."
+  ) +
+  theme_minimal()
+
+```
+
+Part C. Regression: Price \~ Product + Type
+
+```{r}
+# Ensure Grocery is the baseline for Type
+groceries <- groceries %>%
+  mutate(Type = factor(Type,
+                       levels = c("Grocery",
+                                  "Convenience",
+                                  "High-end Grocery",
+                                  "Natural",
+                                  "Small Format")))
+
+mod_type <- lm(Price ~ Product + Type, data = groceries)
+
+# Extract 95% CI for Convenience vs Grocery
+ci_conv <- confint(mod_type)["TypeConvenience", ]
+
+sprintf(
+  "Compared with ordinary grocery stores,\nconvenience stores charge between $%.2f and $%.2f more for the same product.",
+  ci_conv[1], ci_conv[2]
+)
+
+```
+
+Part D. Regression: Price \~ Product + Store
+
+```{r}
+mod_store <- lm(Price ~ Product + Store, data = groceries)
+
+store_coefs <- broom::tidy(mod_store) %>%
+  filter(str_detect(term, "^Store")) %>%
+  mutate(
+    store    = str_remove(term, "^Store"),
+    estimate = round(estimate, 3)
+  ) %>%
+  arrange(estimate)
+
+# Two lowest and two highest
+low2  <- store_coefs %>% slice_head(n = 2)
+high2 <- store_coefs %>% slice_tail(n = 2)
+
+knitr::kable(
+  bind_rows(low2, high2) %>% select(store, estimate),
+  col.names = c("Store", "Coef (USD above baseline)"),
+  caption  = "Table D: Two lowest‑ and two highest‑priced stores, controlling for product."
+)
+
+```
+
+Part E. Central Market vs HEB
+
+```{r}
+# Pull out Central Market & HEB
+cm_val  <- store_coefs %>% filter(store == "Central Market") %>% pull(estimate)
+heb_val <- store_coefs %>% filter(store == "H-E-B")           %>% pull(estimate)
+diff_cm_heb <- round(cm_val - heb_val, 2)
+span_all     <- round(max(store_coefs$estimate) - min(store_coefs$estimate), 2)
+
+sprintf(
+  "Central Market’s coefficient = $%.2f; H‑E‑B’s = $%.2f; difference = $%.2f.  Across all stores the span is $%.2f.",
+  cm_val, heb_val, diff_cm_heb, span_all
+)
+
+
+
+```
+
+Interpretation: Central Market charges about 0.07 more than H‑E‑B for the same products, out of a total inter‑store span of 1.36.
+
+Part F. Income effects
+
+```{r}
+groceries <- groceries %>%
+  mutate(Income10K = Income / 10000)
+
+mod_inc <- lm(Price ~ Product + Income10K, data = groceries)
+
+beta_inc  <- coef(mod_inc)["Income10K"]
+sd_inc    <- sd(groceries$Income10K)
+sd_price  <- sd(groceries$Price)
+std_effect<- beta_inc * sd_inc / sd_price
+
+direction <- if (beta_inc > 0) "more" else "less"
+
+cat(
+  sprintf("1) Because Income10K’s coefficient is %.4f, higher‑income ZIP codes pay %s for the same product (per $10 000).\n",
+          beta_inc, direction),
+  sprintf("2) A 1‑SD increase in Income10K corresponds to a %.2f‑SD change in price.\n",
+          std_effect)
+)
+
+
+
+```
+
+Answer (F1): Lower‑income areas face higher prices, since the Income10K coefficient is negative. Answer (F2): A one‑SD rise in ZIP‑code income is associated with a -3% SD decrease in price.

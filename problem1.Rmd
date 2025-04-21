@@ -1,0 +1,76 @@
+---
+title: "Problem 1 – Solder skips"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(broom)
+library(dplyr)
+library(knitr)
+solder <- read.csv("solder.csv")
+
+```
+
+Part A
+```{r}
+ggplot(solder, aes(Opening, skips)) +
+  geom_boxplot(fill="skyblue") +
+  labs(
+    x = "Solder‑gun opening size (L/M/S)",
+    y = "Number of skips"
+  ) +
+  theme_minimal()
+
+```
+```{r}
+ggplot(solder, aes(Solder, skips)) +
+  geom_boxplot(fill="lightgreen") +
+  labs(
+    x = "Solder thickness",
+    y = "Number of skips"
+  ) +
+  theme_minimal()
+
+```
+
+
+Part B: Fit model and tabulate coefficients + 95% CIs
+
+```{r}
+model <- lm(skips ~ Opening * Solder, data = solder)
+
+coef_table <- tidy(model, conf.int = TRUE) %>%
+  select(term, estimate, conf.low, conf.high) %>%
+  mutate_if(is.numeric, ~ round(., 3))
+
+kable(
+  coef_table,
+  col.names = c("Coefficient", "Estimate", "95% CI Lower", "95% CI Upper"),
+  caption = "Table 1: Model estimates and 95% CIs for skips ~ Opening * Solder"
+)
+
+```
+
+Part C: What the coefficients tell me
+
+Intercept (Large opening & thick solder):
+This is our “starting point.” With a large opening and thick solder, the model predicts about 0.39 skips on average (95% CI: –0.63 to 1.42). In other words, almost no defects under those conditions.
+
+Opening = M (Medium vs. large, thick solder):
+If we shrink the opening from large to medium (still using thick solder), skips go up by about 2.41 (95% CI: 0.96 to 3.85). So medium openings lead to noticeably more flaws.
+
+Opening = S (Small vs. large, thick solder):
+Dropping to a small opening (with thick solder) adds around 5.13 skips (95% CI: 3.68 to 6.57). That’s more than twice the extra skips compared to just going to medium!
+
+Solder = Thin (Thin vs. thick, large opening):
+Keeping the opening large but switching to thin solder costs us about 2.28 extra skips (95% CI: 0.84 to 3.72). Thin alloy by itself definitely makes things worse.
+
+Medium×Thin interaction:
+When we combine medium opening and thin solder, the model actually shows 0.74 fewer skips than you’d expect if you just added their individual effects—but the 95% CI (–2.78 to 1.30) includes zero, so we can’t be sure it’s a real effect.
+
+Small×Thin interaction:
+Putting a small opening together with thin solder is a terrible combo: about 9.65 extra skips beyond what you’d predict from each factor alone (95% CI: 7.61 to 11.70). That interaction is really big and clearly significant.
+
+Part D: What I’d recommend
+Everything points to the same conclusion: the large opening with thick solder gives the fewest skips (around 0.39). Any move toward a smaller opening or thinner solder increases flaws, especially if you do both. So to keep defects as low as possible, I’d choose large opening + thick solder every time.
